@@ -14,6 +14,7 @@ box_char_bot_l      db 192      ; └ (esquina inferior izquierda redondeada)
 box_char_bot_r      db 217      ; ┘ (esquina inferior derecha redondeada)
 box_char_horiz      db 196      ; ─ (línea horizontal simple)
 box_char_vert       db 179      ; │ (línea vertical simple)
+dataDiv             db 10, 1
 
 ; Arte ASCII para letras grandes estilo contorno (5x11 cada una, 55 bytes)
 ; Usando _, -, | para crear solo los bordes/contornos
@@ -30,6 +31,7 @@ GREEN_ATTR  EQU 2Fh
 YELLOW_ATTR EQU 6Fh
 BASE_ATTR   EQU 0Fh
 
+public ClearStringAt
 public SetVideoModeText
 public PrintDollarStringAt
 public PrintCenteredDollarString
@@ -38,6 +40,25 @@ public ReadWord
 public EvaluateGuess
 public RenderGuessRow
 public DrawBigText
+public r2a
+
+ClearStringAt proc near
+    ; entrada:
+    ;  SI = dirección del string con '$'
+    ;  BH = fila
+    ;  BL = columna
+    ;  AH = atributo
+NextClear:
+    lodsb
+    cmp al, '$'
+    je EndClear
+    mov al, ' '        ; convertir cualquier carácter en espacio
+    call WriteCharAttr
+    inc bl
+    jmp NextClear
+EndClear:
+    ret
+ClearStringAt endp
 
 SetVideoModeText proc near
     mov ax, 0003h
@@ -581,6 +602,50 @@ DrawLetterCol:
     pop ax
     ret
 DrawBigLetter endp
+
+r2a proc
+    ;recibe en al el numero a convertir
+    ;recibe en dx el offset de la variable en la que escribe el ascii
+    ;en dx queda guardado el offset de la variable para despues llamar al serivio 9
+    push ax
+    push cx
+    push bx
+    push dx
+    push si
+
+    ;limpiar variable ascii
+    mov cx, 2
+    mov bx, dx
+limpiar:
+    mov byte ptr[bx], 30h
+    inc bx
+    loop limpiar
+
+
+    mov ah, 0
+    mov cx, 2
+    mov bx, dx
+    mov si, 0
+reg2ascc:
+    mov dl, dataDiv[si]
+    div dl
+    add [bx], al
+    mov al, ah
+    mov ah, 0
+    inc bx
+    inc si
+loop reg2ascc
+
+    pop si
+    pop dx
+    pop bx
+    pop cx
+    pop ax
+    
+
+
+ret
+r2a endp
 
 end
 
