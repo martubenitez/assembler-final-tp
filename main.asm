@@ -4,8 +4,8 @@
 MAX_ATTEMPTS     EQU 15
 WORD_LEN         EQU 5
 PROMPT_ROW       EQU 2        ; Movido más arriba para dar más espacio
-INPUT_ROW        EQU 20       ; Movido más abajo para dar más espacio al historial
-HISTORY_BASE_ROW EQU 17       ; Fila más baja del historial (palabras nuevas aquí)
+INPUT_ROW        EQU 4       ; Movido más abajo para dar más espacio al historial
+HISTORY_BASE_ROW EQU INPUT_ROW + 3       ; Fila más baja del historial (palabras nuevas aquí)
 PROMPT_HINT_ROW  EQU PROMPT_ROW + 2
 
 ;int 80h -> calcular columna central (CalculateCenteredColumn)
@@ -150,7 +150,7 @@ RenderHistoryLoop:
     mov bl, 3
     mul bl              ; Cada recuadro ocupa 3 filas
     mov dh, HISTORY_BASE_ROW
-    sub dh, al          ; Restar para que las nuevas estén abajo
+    add dh, al          ; Restar para que las nuevas estén abajo
     pop bx              ; Restaurar índice
     
     int 80h
