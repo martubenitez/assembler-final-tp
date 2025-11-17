@@ -15,13 +15,11 @@ box_char_bot_r      db 217      ; ┘ (esquina inferior derecha redondeada)
 box_char_horiz      db 196      ; ─ (línea horizontal simple)
 box_char_vert       db 179      ; │ (línea vertical simple)
 dataDiv             db 10, 1
-general             db ' CASCO DEDAL JARRA PERRO GATOS PASTO LIBRO CARNE FUEGO METAL PUNTO TORRE PLAYA CAMPO NUBES '
-                    db 'TECLA NARIZ CEJAS LABIO PELOS HUESO ROSTO BARBA BOTAS RUEDA MOTOR TUBOS CABLE VELAS NAVIO '
-paises              db ' CHILE JAPON CHINA INDIA RUSIA SUIZA SIRIA QATAR NEPAL SAMOA TONGA YEMEN GHANA KENIA LIBIA '
-                    db 'RUSIA SUIZA SIRIA QATAR NEPAL SAMOA TONGA YEMEN GHANA KENIA LIBIA TUNEZ SUDAN COREA PAPUA '
-comidas             db ' PIZZA PASTA TACOS SUSHI RAMEN CURRY POLLO CARNE CERDO SOPAS FLANS TORTA QUESO JAMON PERAS '
-                    db 'BUDIN LIMON KIWIS MELON FRUTA VERDE ROJOS NEGRO DULCE SALADO AMARGO ACIDO SUAVE DUROS FRIOS '
-
+general             db 'general.txt',0
+paises              db 'paises.txt',0
+comidas             db 'comidas.txt',0
+bytesRead           dw 0
+buffer              db 1000 dup(0) ;guarda el txt
 
 ; Arte ASCII para letras grandes estilo contorno (5x11 cada una, 55 bytes)
 ; Usando _, -, | para crear solo los bordes/contornos
@@ -54,20 +52,68 @@ public general
 public paises
 public comidas
 
+readFile proc near
+
+    push ax
+    push bx
+    push cx
+    push dx
+    push di
+
+    ;recibe en dx offset filename
+
+    ; --- Abrir archivo para lectura ---
+    mov ah, 3Dh      ; Función DOS: abrir archivo
+    mov al, 0        ; Modo: lectura
+    int 21h
+    jc  file_error   
+    mov bx, ax       ; BX = handle del archivo
+
+    ; --- Leer archivo ---
+    mov ah, 3Fh      ; Función DOS: leer archivo
+    mov cx, 1000      ; Cantidad de bytes a leer
+    lea dx, buffer   ; Dirección del buffer
+    int 21h
+    jc file_error
+    mov bytesRead, ax ; Guardar cantidad de bytes leídos
+
+    ; --- Cerrar archivo ---
+    mov ah, 3Eh      ; Función DOS: cerrar archivo
+    int 21h
+
+file_error:
+    pop di
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+    ; Manejo de error
+readFile endp
+
 PickRandomWord proc near
     ; Entrada: BX = offset de la categoría (general, paises, o comidas)
     ;          DI = offset de targetWord
     ;          SI = offset de targetWordDisplay
     ; Salida:  CX = cantidad de caracteres de la palabra
-    
     push ax
     push dx
+    push di
+    push si
+
+    ;limpiar buffer
+
+    mov dx, offset paises
+    call readFile
+    ;ahora las palabras estan guardadas en buffer
     
-    ; Guardar offset de categoría en DX
-    mov dx, bx
+    ;funcion que cuenta las palabras
+    mov si, offset buffer
+    call CountWords
     
-    ;devuelve en cx el largo de la palabra para despues cuando hagamos palabras con distintos largos
-    call Random1to30
+
+    mov bx, ax
+    call Random1ToN
 
     ;en ax tengo el num del 1 al 30 (cada categoría tiene 30 palabras)
     ;bucle que recorre palabras y cada vez q encuentra un espacio aumenta en 1
@@ -75,8 +121,10 @@ PickRandomWord proc near
     ;recibe en si offset variable targetWordDisplay
     ;devuelve en cx cantidad de caracteres de la palabra
     
-    mov bx, dx      ; Usar la categoría pasada como parámetro
+    mov bx, offset buffer      ; Usar la categoría pasada como parámetro
     mov cx, 0
+    pop si
+    pop di
 recorrerWords:
     cmp byte ptr[bx], 20h
     je isSpace
@@ -110,6 +158,60 @@ endCopy:
     ret
 
 PickRandomWord endp
+
+CountWords proc
+    ;pasar po si offset cadena
+    ;devuelve natidad de palabras en ax
+    ;las palabras tienen q estar separadas por un espacio y el primer caracter tiene que ser un espacio tambien
+    xor ax, ax        ; AX = contador de palabras
+    mov bx, si        ; BX = puntero a cadena
+CountLoopp:
+    mov al, [bx]      ; leer un caracter
+    cmp al, 0         ; si es fin de cadena (NULL), salir
+    je Done
+    cmp al, ' '       ; si es un espacio, aumentar contador
+    jne NextCharr
+    inc ax            ; contar palabra
+NextCharr:
+    inc bx
+    jmp CountLoopp
+Done:
+    dec ax ;cuenta una de mas porque al final de la cadena hay un espacio
+    ret
+CountWords endp
+
+Random1ToN proc
+    ;pasar en bx max num
+    ;devuelve en ax num random
+    push dx
+    push cx
+
+    ; --- Semilla simple: segundos del reloj ---
+    mov ah, 2Ch
+    int 21h
+    mov al, ch        ; usar segundos (0..59)
+    mov ah, 0
+    mov dx, ax        ; DX = semilla
+
+    ; --- Generar pseudoaleatorio simple ---
+    ; AX = (semilla * 3 + 7) mod 65536
+    mov ax, dx
+    mov cx, 3
+    mul cx            ; AX * 3
+    add ax, 7         ; sumamos constante
+    ; ahora AX = pseudoaleatorio 0..65535
+
+    ; --- Ajustar al rango 1..N ---
+    mov cx, bx
+    xor dx, dx
+    div cx            ; AX / N -> DX = residuo 0..N-1
+    mov ax, dx
+    inc ax            ; 1..N
+
+    pop cx
+    pop dx
+    ret
+Random1ToN endp
 
 Random1to30 proc near
     push dx
