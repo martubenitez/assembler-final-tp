@@ -1,6 +1,8 @@
 .model small
 .stack 100h
 
+GREEN_ATTR       EQU 2Fh
+RED_ATTR         EQU 4Fh
 MAX_ATTEMPTS     EQU 15
 WORD_LEN         EQU 9
 PROMPT_ROW       EQU 3        ; Movido más arriba para dar más espacio
@@ -23,7 +25,9 @@ extrn r2a:near
 extrn ClearStringAt:near
 extrn ClearCenteredDollarString:near
 extrn PickRandomWord:near
-extrn drawRedFooter:near
+extrn drawFooter:near
+extrn cleanVar:near
+extrn clearTemp:near
 extrn general:byte
 extrn paises:byte
 extrn comidas:byte
@@ -319,7 +323,8 @@ NotWin:
     jmp ax                  ; Salto indirecto para evitar "out of range"
 
 GameOver:
-    call drawRedFooter
+    mov al, RED_ATTR
+    call drawFooter
 
     lea si, failMsg
     mov bh, 21
@@ -394,18 +399,25 @@ GameOver:
     xor al, al
     rep stosb
 
+    ;limpio vars
+    mov al, 24h
+    mov bx, offset targetWord
+    call cleanVar
+
+    call clearTemp
+
     WaitForEnteer:
     xor ah, ah
     int 16h                 ; Leer tecla del teclado
     cmp al, 0Dh             ; Verificar si es Enter (código 0Dh)
     jne WaitForEnteer        ; Si no es Enter, seguir esperando
 
-    ;llamar a funcion que elige una nueva palabra random
 
     jmp WelcomeMenu
 
 HandleWin:
-    call drawRedFooter
+    mov al, GREEN_ATTR
+    call drawFooter
 
     lea si, successMsg
     mov bh, 22
@@ -480,13 +492,19 @@ HandleWin:
     xor al, al
     rep stosb
 
+    ;limpio vars
+    mov al, 24h
+    mov bx, offset targetWord
+    call cleanVar
+
+    call clearTemp
+
 WaitForEnterr:
     xor ah, ah
     int 16h                 ; Leer tecla del teclado
     cmp al, 0Dh             ; Verificar si es Enter (código 0Dh)
     jne WaitForEnterr        ; Si no es Enter, seguir esperando
 
-    ;llamar a funcion que elige una nueva palabra random
 
     jmp WelcomeMenu
 

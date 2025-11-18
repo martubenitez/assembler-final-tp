@@ -2,7 +2,7 @@
 .stack
 
 .data
-tempTarget          db 5 dup (0)
+tempTarget          db 10 dup (0)
 rw_base_column      db 0
 rw_base_row         db 0
 rw_letter_attr      db 0
@@ -20,8 +20,8 @@ paises              db 'paises.txt',0
 comidas             db 'comidas.txt',0
 bytesRead           dw 0
 buffer              db 1000 dup(0) ;guarda el txt
-prueba              db 'PRUEBA'
 wordLen             db 0
+att                 db 0
 
 
 ; Arte ASCII para letras grandes estilo contorno (5x11 cada una, 55 bytes)
@@ -54,17 +54,23 @@ public PickRandomWord
 public general
 public paises
 public comidas
-public drawRedFooter
+public drawFooter
+public cleanVar
+public clearTemp
 
 
-drawRedFooter proc
+
+
+drawFooter proc
     ; Guarda los registros que se van a utilizar
+    ;recibe atributo en al
     push cx
     push dx
     push ax
     push es
     push di
 
+    mov att, al
     ; Cargar la dirección base de la VRAM para modo texto B800h
     mov ax, 0b800h
     mov es, ax          ; es ahora apunta al segmento de memoria de video
@@ -90,7 +96,7 @@ bucle_columna:
     inc di              
 
     ; Escribir el atributo de color rojo
-    mov al, 4fh         
+    mov al, att        
     mov es:[di], al     
     inc di              
 
@@ -110,51 +116,8 @@ fin_dibujo_texto:
     pop cx
     ret                 ; Retorna de la función
 
-drawRedFooter endp
+drawFooter endp
 
-
-readFile proc near
-
-    push ax
-    push bx
-    push cx
-    push dx
-    push di
-    push si
-
-    ;recibe en dx offset filename
-
-    ; --- Abrir archivo para lectura ---
-    mov ah, 3Dh      ; Función DOS: abrir archivo
-    mov al, 0        ; Modo: lectura
-    int 21h
-    jc  file_error   
-    mov bx, ax       ; BX = handle del archivo
-
-    ; --- Leer archivo ---
-    mov ah, 3Fh      ; Función DOS: leer archivo
-    mov cx, 1000      ; Cantidad de bytes a leer
-    lea dx, buffer   ; Dirección del buffer
-    int 21h
-    jc file_error
-    mov bytesRead, ax ; Guardar cantidad de bytes leídos
-    mov si, ax
-    mov buffer[si], 0
-
-    ; --- Cerrar archivo ---
-    mov ah, 3Eh      ; Función DOS: cerrar archivo
-    int 21h
-
-file_error:
-    pop si
-    pop di
-    pop dx
-    pop cx
-    pop bx
-    pop ax
-    ret
-    ; Manejo de error
-readFile endp
 
 readFile proc near
 
@@ -327,36 +290,7 @@ Random1ToN proc
     ret
 Random1ToN endp
 
-Random1to30 proc near
-    push dx
-    push cx
 
-    ; --- Semilla simple: segundos del reloj ---
-    mov ah, 2Ch
-    int 21h
-    mov al, dl        ; usar segundos (0..59)
-    mov ah, 0
-    mov dx, ax        ; DX = semilla
-
-    ; --- Generar pseudoaleatorio simple ---
-    ; AX = (semilla * 3 + 7) mod 65536
-    mov ax, dx
-    mov cx, 3
-    mul cx            ; AX * 3
-    add ax, 7         ; sumamos constante
-    ; ahora AX = pseudoaleatorio 0..65535
-
-    ; --- Ajustar al rango 1..N ---
-    mov cx, bx
-    xor dx, dx
-    div cx            ; AX / N -> DX = residuo 0..N-1
-    mov ax, dx
-    inc ax            ; 1..N
-
-    pop cx
-    pop dx
-    ret
-Random1ToN endp
 
 ClearCenteredDollarString proc near
     push ax
@@ -1027,6 +961,29 @@ loop reg2ascc
 ret
 r2a endp
 
+
+clearTemp proc near
+    mov bx, offset tempTarget
+    mov al, 0
+    call cleanVar
+clearTemp endp
+
+cleanVar proc near ;limpia la taretWord
+    ;recibe en bx offset variable
+    ;recibe en al char a colocar
+    push bx
+    push cx
+    mov cx, 10
+    
+cleanLoop:
+    mov [bx], al
+    inc bx
+loop cleanLoop
+
+    pop cx
+    pop bx
+    ret
+cleanVar endp
 end
 
 
